@@ -83,7 +83,7 @@ void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void generateSine(float freq, int duration, int sampling_freq);
+
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
