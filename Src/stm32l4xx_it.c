@@ -38,6 +38,7 @@
 
 /* USER CODE BEGIN 0 */
 extern int tim3_flag;
+extern int timerFlag;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -156,7 +157,7 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   osSystickHandler();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+	timerFlag = 1;
   /* USER CODE END SysTick_IRQn 1 */
 }
 

@@ -54,9 +54,9 @@
 /* USER CODE BEGIN Includes */
 #include "arm_math.h"
 #include "stm32l475e_iot01_qspi.h"
-/* USER CODE END Includes */
 
-#define SIZE 8000
+#define SIZE 16000
+/* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 DAC_HandleTypeDef hdac1;
@@ -74,6 +74,7 @@ osThreadId defaultTaskHandle;
 /* Private variables ---------------------------------------------------------*/
 int tim3_flag = 0;
 int buffer[SIZE];
+int timerFlag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,10 +85,10 @@ static void MX_DFSDM1_Init(void);
 static void MX_DAC1_Init(void);
 void StartDefaultTask(void const * argument);
 
-
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 void generateSine(float frequency, int duration, int samplingFrequency);
+
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -136,10 +137,10 @@ int main(void)
   MX_USART1_UART_Init();
   MX_DFSDM1_Init();
   MX_DAC1_Init();
+	
   /* USER CODE BEGIN 2 */
-	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) buffer, SIZE, DAC_ALIGN_8B_R);
-	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t *) buffer, SIZE, DAC_ALIGN_8B_R);
-	HAL_Delay(500); //500ms delay
+	HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+	HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -253,7 +254,7 @@ void SystemClock_Config(void)
 
     /**Configure the Systick interrupt time 
     */
-  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
+  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/16000);
 
     /**Configure the Systick 
     */
@@ -280,7 +281,7 @@ static void MX_DAC1_Init(void)
     /**DAC channel OUT1 config 
     */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
@@ -412,8 +413,9 @@ static void MX_GPIO_Init(void)
 void generateSine(float frequency, int duration, int samplingFrequency)
 {
 	int index = 0;
+	float invSamplingFreq = 1.0f / samplingFrequency;
 	for(int i = 0; i < duration * samplingFrequency; i++){
-		float32_t val = arm_sin_f32(2.0f * PI * frequency * i / samplingFrequency);
+		float32_t val = arm_sin_f32(2.0f * PI * frequency * i * invSamplingFreq);
 		uint8_t data = (val + 1.0f) * 127.5f;
 		//HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, data);
 		buffer[index++] = data;
@@ -422,6 +424,7 @@ void generateSine(float frequency, int duration, int samplingFrequency)
 	
 	
 }
+
 /* USER CODE END 4 */
 
 /* StartDefaultTask function */
@@ -429,16 +432,28 @@ void StartDefaultTask(void const * argument)
 {
 
   /* USER CODE BEGIN 5 */
+	int index = 0;
+	generateSine(440, 1, 16000);
+	
   /* Infinite loop */
   for(;;)
   {
-    //osDelay(1);
-		generateSine(440, 2, 16000);
+		index = 0;
+		HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);
+		HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_8B_R, 0);
+		while (index < SIZE){
+			if (timerFlag == 1){
+				timerFlag = 0;
+				HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, buffer[index]);
+				HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_8B_R, buffer[index]);
+				index++;
+			}
+		}
+		
+ 
   }
   /* USER CODE END 5 */ 
 }
-
-
 
 /**
   * @brief  Period elapsed callback in non blocking mode
