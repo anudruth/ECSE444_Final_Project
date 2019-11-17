@@ -56,6 +56,8 @@
 #include "stm32l475e_iot01_qspi.h"
 /* USER CODE END Includes */
 
+#define SIZE 8000
+
 /* Private variables ---------------------------------------------------------*/
 DAC_HandleTypeDef hdac1;
 
@@ -71,6 +73,7 @@ osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 int tim3_flag = 0;
+int buffer[SIZE];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -81,9 +84,10 @@ static void MX_DFSDM1_Init(void);
 static void MX_DAC1_Init(void);
 void StartDefaultTask(void const * argument);
 
+
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void generateSine(float frequency, int duration, int samplingFrequency);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -133,8 +137,9 @@ int main(void)
   MX_DFSDM1_Init();
   MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
-	HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
-	HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) buffer, SIZE, DAC_ALIGN_8B_R);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t *) buffer, SIZE, DAC_ALIGN_8B_R);
+	HAL_Delay(500); //500ms delay
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -275,7 +280,7 @@ static void MX_DAC1_Init(void)
     /**DAC channel OUT1 config 
     */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
@@ -404,7 +409,19 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void generateSine(float frequency, int duration, int samplingFrequency)
+{
+	int index = 0;
+	for(int i = 0; i < duration * samplingFrequency; i++){
+		float32_t val = arm_sin_f32(2.0f * PI * frequency * i / samplingFrequency);
+		uint8_t data = (val + 1.0f) * 127.5f;
+		//HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, data);
+		buffer[index++] = data;
+		
+	}
+	
+	
+}
 /* USER CODE END 4 */
 
 /* StartDefaultTask function */
@@ -415,10 +432,13 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    //osDelay(1);
+		generateSine(440, 2, 16000);
   }
   /* USER CODE END 5 */ 
 }
+
+
 
 /**
   * @brief  Period elapsed callback in non blocking mode
